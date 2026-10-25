@@ -21,11 +21,11 @@ all of it is how things get missed. Sloth FM does the reading so I do not have t
 
 ## How it works
 
-```
-gh api notifications  ->  SQLite journal  ->  code decides the obvious  ->  Gemma 3 (local) judges the rest
-                                                                                 |
-     morning page + radio show (Kokoro, local)  <-  code writes every number  <--+
-```
+1. `gh api notifications` fetches everything into a small SQLite journal.
+2. Code decides the obvious ones.
+3. Gemma 3, running locally, judges the rest.
+4. Code writes every number.
+5. Kokoro reads the morning show, and a page lists every link.
 
 - **Code decides the obvious.** Passed or cancelled CI, releases you only watch, merged pull requests, and older runs
   of the same workflow on the same branch never reach the model.
