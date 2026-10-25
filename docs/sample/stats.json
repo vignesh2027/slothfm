@@ -1,0 +1,16 @@
+{
+  "notifications": 76,
+  "decided_by_code": 57,
+  "decided_by_gemma": 19,
+  "buckets": {
+    "needs_you": 18,
+    "good_news": 9,
+    "noise": 49
+  },
+  "gemma_minutes": 2.3,
+  "show_seconds": 98.7,
+  "words_you_did_not_read": 1255,
+  "tidied": 0,
+  "model": "gemma3:4b",
+  "voice": "bm_george"
+}

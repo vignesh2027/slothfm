@@ -7,16 +7,18 @@ from pathlib import Path
 from .github import html_url
 
 LOGO = "data:image/svg+xml;base64," + base64.b64encode((Path(__file__).parent / "logo.svg").read_bytes()).decode()
-TITLES = {"needs_you": "Needs you", "good_news": "Good news", "noise": "Noise, safe to ignore"}
+TITLES = {"today": "Needs you today", "this_week": "Yours this week, nobody blocked", "good_news": "Good news",
+          "noise": "Noise, safe to ignore"}
 
 
 def two_lines(items):
-    needs = [i for i in items if i["bucket"] == "needs_you"]
+    needs = [i for i in items if i["bucket"] == "needs_you" and i.get("urgency") == "today"]
+    later = sum(1 for i in items if i["bucket"] == "needs_you" and i.get("urgency") != "today")
     good = sum(1 for i in items if i["bucket"] == "good_news")
     noise = sum(1 for i in items if i["bucket"] == "noise")
-    first = (f"{len(needs)} of {len(items)} notifications need you"
-             + (": " + "; ".join((i["why"] or i["title"]) for i in needs[:3]) + "." if needs else "."))
-    return first, f"{good} went well and {noise} were noise."
+    first = (f"{len(needs)} of {len(items)} notifications need you today"
+             + (": " + "; ".join((i["why"] or i["title"]).rstrip(".") for i in needs[:3]) + "." if needs else "."))
+    return first, f"{later} can wait for this week, {good} went well and {noise} were noise."
 
 
 def page(items, audio_name, seconds, public=False, night=None):
@@ -31,8 +33,13 @@ def page(items, audio_name, seconds, public=False, night=None):
 
     l1, l2 = two_lines(items)
     blocks = []
-    for b in ("needs_you", "good_news", "noise"):
-        group = [i for i in items if i["bucket"] == b]
+    def section(i):
+        if i["bucket"] == "needs_you":
+            return "today" if i.get("urgency") == "today" else "this_week"
+        return i["bucket"]
+
+    for b in ("today", "this_week", "good_news", "noise"):
+        group = [i for i in items if section(i) == b]
         blocks.append(f'<section class="{b}"><h2>{TITLES[b]} <small>{len(group)}</small></h2><ul>'
                       + "".join(row(i) for i in group) + "</ul></section>")
     stats = night or {}
@@ -47,7 +54,7 @@ h1{{font-size:30px;margin:6px 0 4px}}.lede{{font-size:19px;margin:14px 0 4px}}.l
 audio{{width:100%}}.stats{{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:14px}}.stats b{{color:var(--ink)}}
 h2{{font-size:18px;margin:26px 0 8px}}h2 small{{color:var(--muted);font-weight:500}}
 ul{{list-style:none;padding:0;margin:0}}li{{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:8px 0}}
-.needs_you li{{border-left:4px solid var(--sun)}}.good_news li{{border-left:4px solid var(--moss)}}.noise li{{opacity:.75}}
+.today li{{border-left:4px solid var(--sun)}}.this_week li{{border-left:4px solid #C9A86A}}.good_news li{{border-left:4px solid var(--moss)}}.noise li{{opacity:.75}}
 .t{{font-weight:600;overflow-wrap:anywhere}}.m{{display:flex;gap:12px;flex-wrap:wrap;font-size:13.5px;color:var(--muted)}}
 .by{{background:#EFE7D6;border-radius:999px;padding:0 8px}}a{{color:var(--sun)}}
 </style></head><body><main>

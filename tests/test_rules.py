@@ -28,9 +28,26 @@ def test_advisories_and_private_repos_are_sensitive_and_never_read_aloud():
 
 
 def test_the_show_states_counts_from_code_not_the_model():
-    items = [{"bucket": "needs_you", "say": "Sign the CLA.", "why": "", "repo": "a/b", "type": "CheckSuite"},
+    items = [{"bucket": "needs_you", "urgency": "today", "say": "Sign the CLA.", "why": "", "repo": "a/b", "type": "CheckSuite"},
+             {"bucket": "needs_you", "urgency": "this_week", "say": "Fix CI.", "why": "", "repo": "a/b", "type": "CheckSuite"},
              {"bucket": "noise", "say": None, "why": "", "repo": "a/b", "type": "CheckSuite"},
              {"bucket": "noise", "say": None, "why": "", "repo": "a/b", "type": "Release"}]
     lines = radio.script(items, "Rest is work too.", tidied=False)
     text = " ".join(lines)
-    assert "I read 3 GitHub notifications" in text and "1 thing needs you" in text and "The other 2 were noise" in text
+    assert "I read 4 GitHub notifications" in text and "1 thing needs you today" in text and "The other 2 were noise" in text
+    assert "1 more are yours this week" in text and "Fix CI." not in text
+
+
+def test_ci_on_a_merged_pull_request_is_noise():
+    ci = item(type="CheckSuite", title="E2E Tests workflow run failed for fix/x branch")
+    assert rules.decide(ci, {"pull_request_state": "merged"}, "me")[0] == "noise"
+    assert rules.decide(ci, {"pull_request_state": "open"}, "me") is None
+
+
+def test_whose_move_is_decided_by_facts():
+    from slothfm.github import whose_move
+    assert whose_move({"review_requested_from_you": True}) == "yours"
+    assert whose_move({"you_opened_it": True, "last_comment_is_yours": True, "last_comment_by": "me"}) == "the maintainers'"
+    assert whose_move({"you_opened_it": True, "last_comment_by": "maintainer"}) == "yours"
+    pr = item()
+    assert rules.decide(pr, {"state": "open", "whose_move": "the maintainers'"}, "me")[0] == "noise"

@@ -29,9 +29,13 @@ def decide(item, ctx, me):
             return ("noise", "a CI run passed", None)
         if CI_CANCELLED.search(title):
             return ("noise", "a CI run was cancelled", None)
+        if ctx.get("pull_request_state") in ("merged", "closed"):
+            return ("noise", f"CI on a pull request that is already {ctx['pull_request_state']}", None)
         return None                                   # a failure: is it yours to fix? the model reads it
     if t == "Release" and item["reason"] == "subscribed":
         return ("noise", "a new release of a repository you watch", None)
+    if t in ("PullRequest", "Issue") and ctx.get("state") == "open" and ctx.get("whose_move") == "the maintainers'":
+        return ("noise", "yours, but waiting on the maintainers", None)
     if t == "PullRequest" and ctx.get("merged"):
         return ("good_news", "your pull request was merged" if ctx.get("opened_by") == me else "a pull request was merged",
                 None)

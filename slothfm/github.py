@@ -49,12 +49,17 @@ def context(item):
         ctx.update(ci_parts(item["title"]))
         ctx["triggered_by_your_push"] = item["reason"] == "ci_activity"
         ctx["default_branch"] = default_branch(item["repo"])
+        if ctx.get("branch") and ctx["branch"] != ctx["default_branch"]:
+            ctx.update(pull_request_for(item["repo"], ctx["branch"]))
     if item.get("api_url") and item["type"] in ("PullRequest", "Issue"):
         try:
             d = json.loads(gh(item["api_url"]))
             ctx["state"] = d.get("state")
             ctx["merged"] = bool(d.get("merged"))
             ctx["opened_by"] = (d.get("user") or {}).get("login")
+            ctx["you_opened_it"] = ctx["opened_by"] == me_cached()
+            reviewers = [r.get("login") for r in d.get("requested_reviewers") or []]
+            ctx["review_requested_from_you"] = me_cached() in reviewers
         except RuntimeError:
             pass
     if item.get("comment_url") and item.get("comment_url") != item.get("api_url"):
@@ -68,6 +73,8 @@ def context(item):
             ctx["last_comment"] = " ".join(body.split())[:600]
         except RuntimeError:
             pass
+    if item["type"] in ("PullRequest", "Issue"):
+        ctx["whose_move"] = whose_move(ctx)
     return ctx
 
 
@@ -96,3 +103,36 @@ def default_branch(repo):
 
 def mark_read(thread):
     gh(f"notifications/threads/{thread}", method="PATCH")
+
+
+def pull_request_for(repo, branch):
+    """The pull request a CI run belongs to, if any: is it still open, merged or closed?"""
+    key = f"pr:{repo}:{branch}"
+    if key not in _cache:
+        found = {}
+        for owner in {me_cached(), repo.split("/")[0]}:
+            try:
+                prs = json.loads(gh(f"repos/{repo}/pulls?head={owner}:{branch}&state=all&per_page=1"))
+            except RuntimeError:
+                continue
+            if prs:
+                pr = prs[0]
+                found = {"pull_request_state": "merged" if pr.get("merged_at") else pr["state"],
+                         "pull_request_title": pr["title"]}
+                break
+        _cache[key] = found
+    return _cache[key]
+
+
+def whose_move(ctx):
+    """Who has to act next on a pull request or issue, decided from facts rather than guessed by the model."""
+    if ctx.get("review_requested_from_you"):
+        return "yours"
+    comment = ctx.get("last_comment", "").lower()
+    if ctx.get("last_comment_is_from_a_bot") and "cla" in comment and "sign" in comment and "signed" not in comment:
+        return "yours"
+    if ctx.get("you_opened_it"):
+        if not ctx.get("last_comment_by") or ctx.get("last_comment_is_yours") or ctx.get("last_comment_is_from_a_bot"):
+            return "the maintainers'"
+        return "yours"
+    return "unknown"

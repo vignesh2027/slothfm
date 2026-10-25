@@ -19,6 +19,9 @@ def db():
     con = sqlite3.connect(config.DB)
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    cols = {r[1] for r in con.execute("PRAGMA table_info(items)")}
+    if "urgency" not in cols:
+        con.execute("ALTER TABLE items ADD COLUMN urgency TEXT")
     return con
 
 
@@ -49,11 +52,11 @@ def get(thread):
     return d
 
 
-def decide(thread, bucket, why, say, decided_by, model_ms=0, sensitive=False, context=None):
+def decide(thread, bucket, why, say, decided_by, model_ms=0, sensitive=False, context=None, urgency=None):
     con = db()
     con.execute("""UPDATE items SET bucket=?, why=?, say=?, decided_by=?, model_ms=?, sensitive=?, context=?,
-                   decided_at=datetime('now') WHERE thread=?""",
-                (bucket, why, say, decided_by, model_ms, int(sensitive), json.dumps(context or {}), thread))
+                   urgency=?, decided_at=datetime('now') WHERE thread=?""",
+                (bucket, why, say, decided_by, model_ms, int(sensitive), json.dumps(context or {}), urgency, thread))
     con.commit()
 
 
@@ -69,17 +72,23 @@ def mark_tidied(thread):
 
 
 def supersede_ci():
-    """Only the newest run of a workflow on a branch matters; older runs are decided as noise by code."""
+    """Only the newest failing run on a branch matters; older runs and sibling workflows are noise, decided by code."""
     from .rules import ci_parts
     con, seen, n = db(), set(), 0
     rows = con.execute("SELECT thread, repo, title FROM items WHERE type='CheckSuite' AND bucket IS NULL ORDER BY updated DESC")
     for r in rows.fetchall():
         parts = ci_parts(r["title"])
-        key = (r["repo"], parts.get("workflow"), parts.get("branch"))
+        key = (r["repo"], parts.get("branch"))
         if None in key:
             continue
         if key in seen:
-            decide(r["thread"], "noise", "an older run of the same workflow", None, "rule")
+            decide(r["thread"], "noise", "another CI run on the same branch", None, "rule")
             n += 1
         seen.add(key)
     return n
+
+
+def pull_request_thread(repo, title):
+    """The notification thread of a pull request, if GitHub sent one: CI runs on it fold into that thread."""
+    r = db().execute("SELECT thread FROM items WHERE type='PullRequest' AND repo=? AND title=?", (repo, title)).fetchone()
+    return r["thread"] if r else None

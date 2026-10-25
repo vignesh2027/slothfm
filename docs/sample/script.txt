@@ -1,0 +1,14 @@
+Good morning. This is Sloth FM. While you slept, I read 76 GitHub notifications, slowly, on your own laptop, so you would not have to.
+5 things need you today.
+First: You need to address the bug report regarding instrumentation spans leaking in the opentelemetry-go-compile-instrumentation repo.
+Next: You need to address a bug in the opentelemetry-go-compile-instrumentation repo regarding span leaks.
+Then: In opentelemetry-go-compile-instrumentation, you need to review and respond to this naming request.
+Also: You need to address the review request on the opentelemetry-go-compile-instrumentation repo.
+And: You need to review the draft issue for the opentelemetry-go-compile-instrumentation repo, you've been asked for feedback.
+13 more are yours this week, but nobody is blocked on them. They are on your morning page.
+Some good news: 9 things went well.
+In opentelemetry-operator, your pull request was merged.
+In opentelemetry-go-compile-instrumentation, your pull request was merged.
+The other 49 were noise: 28 CI runs that need nothing from you, 16 threads you were only following, 5 releases from repositories you watch. You can ignore them.
+The most productive moment is often the one where you simply rest.
+That is all. Go back to sleep for five more minutes. You have earned it.

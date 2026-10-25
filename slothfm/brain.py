@@ -15,6 +15,12 @@ about it as JSON. Choose one bucket:
 - good_news: something finished well (merged, approved, released, a fix landed).
 - noise: nothing to do (CI on other people's default branches, releases they only watch, bots chatting, threads they
   merely follow, runs that were superseded).
+For needs_you, also set urgency. "today" only when a person is blocked waiting on the developer: a review requested
+from them, a direct question to them, a CLA blocking their pull request, or their own default branch broken.
+Everything else that is theirs to do eventually (CI failing on their pull request branch, a stale pull request,
+feedback to address) is "this_week". For good_news and noise, urgency is "none".
+whose_move is computed from facts: "yours" means the developer must act; "the maintainers'" means they are
+waiting on others. Trust it.
 Who spoke last matters: if last_comment_is_yours is true, the developer already answered and is waiting on others,
 so it is not needs_you. A bot reporting a finished review with no findings is good_news.
 "why": at most 12 words describing the notification itself, in plain English.
@@ -27,9 +33,10 @@ SCHEMA = {
     "properties": {
         "bucket": {"type": "string", "enum": ["needs_you", "good_news", "noise"]},
         "why": {"type": "string"},
+        "urgency": {"type": "string", "enum": ["today", "this_week", "none"]},
         "say": {"type": "string"},
     },
-    "required": ["bucket", "why", "say"],
+    "required": ["bucket", "urgency", "why", "say"],
 }
 
 
@@ -56,7 +63,8 @@ def triage(item, ctx, me):
                      {"role": "user", "content": json.dumps(facts, ensure_ascii=False)}], schema=SCHEMA)
     d = json.loads(text)
     say = tidy_speech(d.get("say", ""), me)
-    return d["bucket"], d.get("why", "")[:120], say[:220], ms
+    urgency = d.get("urgency") if d["bucket"] == "needs_you" else "none"
+    return d["bucket"], d.get("why", "")[:120], say[:220], ms, urgency or "this_week"
 
 
 def tidy_speech(say, me=""):
@@ -67,6 +75,8 @@ def tidy_speech(say, me=""):
         say = re.sub(rf",?\s*{re.escape(me)},?", "", say, flags=re.IGNORECASE)
     say = re.sub(r"^You,? (?:have )?for (?:the )?(?:[\w.-]+/)?([\w.-]+?)(?: repo(?:sitory)?)?,\s*", r"In \1, you ", say)
     say = re.sub(r",?\s*you\.$", ".", say)
+    say = re.sub(r"\b(critical|urgent|immediately|right away|asap)\b\s*", "", say, flags=re.IGNORECASE)
+    say = re.sub(r"\s+([.,;])", r"\1", say)
     say = say.replace("you have a", "you have a").replace("  ", " ").strip()
     return say[:1].upper() + say[1:]
 

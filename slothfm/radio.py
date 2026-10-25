@@ -22,7 +22,9 @@ def noise_summary(items):
 
 def script(items, thought, tidied, me=""):
     from .brain import tidy_speech
-    needs = [i for i in items if i["bucket"] == "needs_you"]
+    needs_all = [i for i in items if i["bucket"] == "needs_you"]
+    needs = [i for i in needs_all if i.get("urgency") == "today"]
+    later = [i for i in needs_all if i.get("urgency") != "today"]
     good = [i for i in items if i["bucket"] == "good_news"]
     noise = [i for i in items if i["bucket"] == "noise"]
     total = len(items)
@@ -34,14 +36,17 @@ def script(items, thought, tidied, me=""):
             say = tidy_speech(it["say"], me) if it["say"] else f"{it['why']}, in {it['repo'].split('/')[-1]}."
             lines.append(f"{ORDINALS[min(n, len(ORDINALS) - 1)]}: {say}")
         if len(needs) > 6:
-            lines.append(f"There are {len(needs) - 6} more on your morning page.")
+            lines.append(f"There are {len(needs) - 6} more urgent ones on your morning page.")
     else:
         lines.append("Nothing needs you today. Truly nothing.")
+    if later:
+        lines.append(f"{len(later)} more are yours this week, but nobody is blocked on them. They are on your morning page.")
     if good:
         lines.append(f"Some good news: {len(good)} {'thing' if len(good) == 1 else 'things'} went well.")
+        good = sorted(good, key=lambda i: "merged" not in (i["why"] or ""))
         for it in good[:2]:
-            if it["say"]:
-                lines.append(tidy_speech(it["say"], me))
+            short = it["repo"].split("/")[-1]
+            lines.append(tidy_speech(it["say"], me) if it["say"] else f"In {short}, {it['why']}.")
     if noise:
         verb = "I marked them read" if tidied else "You can ignore them"
         lines.append(f"The other {len(noise)} were noise: {noise_summary(noise)}. {verb}.")

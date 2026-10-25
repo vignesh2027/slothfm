@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sloth FM</title>
+<meta name="description" content="Sloth FM reads your GitHub notifications overnight with Gemma 3 running on your own laptop, then Kokoro reads you a short radio show at breakfast. Slow, private, open models, no cloud.">
+<meta name="theme-color" content="#F4EFE6">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sloth FM">
+<meta property="og:description" content="Your GitHub inbox, read overnight by a sloth on your own laptop.">
+<meta property="og:image" content="img/logo.png">
+<meta property="og:image:alt" content="The Sloth FM logo: a sloth wearing orange headphones">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Sloth FM">
+<meta name="twitter:description" content="Your GitHub inbox, read overnight by a sloth on your own laptop.">
+<meta name="twitter:image" content="img/logo.png">
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="apple-touch-icon" href="img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --cream: #F4EFE6;
+    --card: #FFFDF8;
+    --ink: #2B2A26;
+    --muted: #77705F;
+    --muted-text: #6A6354;   /* muted, a touch darker so small text on cream passes AA */
+    --moss: #5E7D4E;
+    --moss-deep: #4B6A3D;
+    --moss-wash: #E6EBDC;
+    --sunrise: #D9822B;
+    --sunrise-wash: #F6E3CC;
+    --line: #E4DCCB;
+    --code-bg: #2B2A26;
+    --code-ink: #F4EFE6;
+
+    --serif: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --max: 1100px;
+    --gutter: 16px;
+    --radius: 18px;
+    --radius-sm: 12px;
+    --shadow: 0 1px 0 rgba(43, 42, 38, .04), 0 10px 30px -18px rgba(43, 42, 38, .25);
+    color-scheme: light;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 80px; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  img { max-width: 100%; height: auto; display: block; }
+  a { color: var(--moss-deep); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  a:hover { color: var(--ink); }
+
+  :focus-visible {
+    outline: 3px solid var(--sunrise);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  .skip {
+    position: absolute; left: var(--gutter); top: -60px;
+    background: var(--ink); color: var(--cream);
+    padding: 10px 14px; border-radius: 10px; z-index: 100; text-decoration: none;
+  }
+  .skip:focus { top: 12px; color: var(--cream); }
+
+  .wrap { width: 100%; max-width: calc(var(--max) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
+
+  h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.15; letter-spacing: -0.01em; margin: 0; font-optical-sizing: auto; }
+  h2 { font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); }
+  h3 { font-size: 1.2rem; }
+  p { margin: 0 0 1em; }
+
+  code, pre, kbd { font-family: var(--mono); }
+  :not(pre) > code {
+    font-size: .88em; background: var(--moss-wash); color: var(--ink);
+    padding: .1em .4em; border-radius: 6px; overflow-wrap: anywhere;
+  }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--moss-deep); margin: 0 0 12px; font-weight: 500;
+  }
+  .lede { color: var(--muted-text); font-size: 1.08rem; max-width: 62ch; }
+
+  section { padding: 88px 0; }
+  section + section { border-top: 1px solid var(--line); }
+  .head { margin-bottom: 36px; }
+  .head h2 { margin-bottom: 14px; }
+
+  /* nav */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(244, 239, 230, .88);
+    backdrop-filter: saturate(1.4) blur(10px);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 64px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-family: var(--serif); font-weight: 600; font-size: 1.2rem; }
+  .brand img { width: 34px; height: 34px; }
+  .nav ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; align-items: center; }
+  .nav ul a { color: var(--ink); text-decoration: none; font-size: .95rem; font-weight: 500; }
+  .nav ul a:hover { color: var(--moss-deep); text-decoration: underline; }
+  .nav .gh { border: 1px solid var(--line); background: var(--card); padding: 7px 14px; border-radius: 999px; }
+  @media (max-width: 720px) { .nav .hide-sm { display: none; } }
+
+  /* buttons */
+  .btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 22px; border-radius: 999px; font-weight: 600; font-size: 1rem;
+    text-decoration: none; border: 1px solid transparent; transition: transform .15s ease, background .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn-primary { background: var(--moss-deep); color: var(--card); }
+  .btn-primary:hover { background: var(--ink); color: var(--card); }
+  .btn-ghost { background: var(--card); color: var(--ink); border-color: var(--line); }
+  .btn-ghost:hover { border-color: var(--muted); color: var(--ink); }
+  .btn svg { width: 18px; height: 18px; flex: none; }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
+
+  /* hero */
+  .hero { position: relative; padding: 72px 0 88px; overflow: hidden; border-top: 0; }
+  .hero::before {
+    content: ""; position: absolute; inset: auto -20% -55% -20%; height: 120%;
+    background: radial-gradient(closest-side, rgba(217, 130, 43, .22), rgba(217, 130, 43, .08) 55%, transparent 75%);
+    pointer-events: none; z-index: 0;
+  }
+  .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: 1.25fr .9fr; gap: 48px; align-items: center; }
+  .hero-logo { width: 88px; height: 88px; margin-bottom: 24px; filter: drop-shadow(0 10px 18px rgba(75, 106, 61, .25)); }
+  .hero h1 { font-size: clamp(3rem, 2rem + 5vw, 5.2rem); font-weight: 600; letter-spacing: -0.02em; }
+  .tagline { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: clamp(1.3rem, 1rem + 1.3vw, 1.8rem); line-height: 1.3; margin: 14px 0 18px; max-width: 24ch; }
+  .hero .lede { margin: 0; }
+
+  .programme { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 26px 26px 18px; }
+  .programme h2 { font-size: 1.15rem; display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .onair { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ink); background: var(--sunrise-wash); border-radius: 999px; padding: 3px 10px; font-weight: 500; }
+  .onair::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--sunrise); }
+  .programme ol { list-style: none; margin: 0; padding: 0; }
+  .programme li { display: grid; grid-template-columns: 76px 1fr; gap: 12px; padding: 12px 0; border-top: 1px dashed var(--line); }
+  .programme li:first-child { border-top: 0; }
+  .programme .when { font-family: var(--mono); font-size: .8rem; color: var(--muted-text); padding-top: 2px; }
+  .programme strong { display: block; font-weight: 600; }
+  .programme span.d { color: var(--muted-text); font-size: .93rem; }
+
+  /* listen */
+  .player-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px; display: grid; grid-template-columns: 1fr 1.3fr; gap: 32px; }
+  .player-card .meta h3 { margin-bottom: 8px; }
+  .player-card .meta p { color: var(--muted-text); font-size: .98rem; }
+  .player-card audio { width: 100%; margin-top: 8px; }
+  .dial { display: flex; gap: 4px; align-items: flex-end; height: 34px; margin-bottom: 18px; }
+  .dial i { display: block; width: 6px; border-radius: 3px; background: var(--moss); opacity: .75; }
+  .transcript-label { font-family: var(--mono); font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-text); margin: 0 0 10px; }
+  #transcript {
+    margin: 0; padding: 20px 22px; background: var(--cream); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    font-family: var(--mono); font-size: .9rem; line-height: 1.7; color: var(--ink);
+    white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow-y: auto;
+  }
+
+  /* flow */
+  .temporal {
+    position: relative; border: 2px dashed var(--moss); border-radius: 24px; padding: 44px 22px 22px;
+    background: linear-gradient(180deg, rgba(94, 125, 78, .06), rgba(94, 125, 78, .02));
+  }
+  .temporal-tag {
+    position: absolute; top: -15px; left: 22px; background: var(--moss-deep); color: var(--card);
+    font-family: var(--mono); font-size: .8rem; padding: 4px 12px; border-radius: 999px; font-weight: 500;
+  }
+  .flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px; counter-reset: step; }
+  .flow li {
+    position: relative; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm);
+    padding: 16px 14px 14px; counter-increment: step; min-width: 0;
+  }
+  .flow li::before {
+    content: counter(step); display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--cream); border: 1px solid var(--line); font-family: var(--mono); font-size: .75rem; color: var(--muted-text); margin-bottom: 10px;
+  }
+  .flow li:not(:last-child)::after {
+    content: ""; position: absolute; top: 50%; right: -17px; width: 12px; height: 12px;
+    border-top: 2px solid var(--sunrise); border-right: 2px solid var(--sunrise); transform: translateY(-50%) rotate(45deg);
+  }
+  .flow h3 { font-family: var(--sans); font-size: .98rem; font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
+  .flow p { margin: 0; font-size: .86rem; color: var(--muted-text); line-height: 1.5; }
+  .flow .who { display: inline-block; font-family: var(--mono); font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; margin-top: 10px; }
+  .who.code { background: var(--moss-wash); color: var(--moss-deep); }
+  .who.model { background: var(--sunrise-wash); color: #8A4E14; }
+  .who.data { background: var(--cream); color: var(--muted-text); border: 1px solid var(--line); }
+
+  .temporal-notes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 22px 0 0; padding: 0; list-style: none; }
+  .temporal-notes li { font-size: .9rem; color: var(--ink); padding-left: 18px; position: relative; }
+  .temporal-notes li::before { content: ""; position: absolute; left: 0; top: .55em; width: 8px; height: 8px; border-radius: 50%; background: var(--moss); }
+
+  @media (max-width: 980px) {
+    .flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .flow li:nth-child(3)::after { display: none; }
+    .temporal-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .flow { grid-template-columns: 1fr; gap: 26px; }
+    .flow li:nth-child(3)::after { display: block; }
+    .flow li:not(:last-child)::after { top: auto; right: auto; bottom: -19px; left: 50%; transform: translateX(-50%) rotate(135deg); }
+    .temporal { padding: 40px 14px 18px; }
+    .temporal-notes { grid-template-columns: 1fr; }
+  }
+
+  /* cards */
+  .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+  .card .ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 16px; background: var(--moss-wash); color: var(--moss-deep); }
+  .card:nth-child(even) .ico { background: var(--sunrise-wash); color: #8A4E14; }
+  .card .ico svg { width: 22px; height: 22px; }
+  .card h3 { margin-bottom: 8px; }
+  .card p { margin: 0; color: var(--muted-text); font-size: .95rem; }
+  @media (max-width: 980px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .cards { grid-template-columns: 1fr; } }
+
+  /* private */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .checks li { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 16px 18px 16px 52px; position: relative; }
+  .checks li::before {
+    content: ""; position: absolute; left: 18px; top: 19px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--moss-deep) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.5 10.5l3 3 6-7' fill='none' stroke='%23FFFDF8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 20px no-repeat;
+  }
+  .checks strong { display: block; }
+  .checks span { color: var(--muted-text); font-size: .95rem; }
+  .never { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; }
+  .never li { font-family: var(--mono); font-size: .8rem; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  .never li s { text-decoration-color: var(--sunrise); text-decoration-thickness: 2px; }
+
+  /* table */
+  .table-wrap { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .97rem; }
+  caption { text-align: left; padding: 18px 22px 0; color: var(--muted-text); font-size: .9rem; }
+  th, td { text-align: left; padding: 16px 22px; vertical-align: top; }
+  thead th { font-family: var(--mono); font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-text); font-weight: 500; border-bottom: 1px solid var(--line); }
+  tbody tr + tr td, tbody tr + tr th { border-top: 1px solid var(--line); }
+  tbody th { font-weight: 600; }
+  td small { display: block; color: var(--muted-text); font-size: .85rem; margin-top: 2px; }
+  @media (max-width: 640px) {
+    table, thead, tbody, tr, th, td { display: block; }
+    thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    tbody tr { padding: 16px 18px; }
+    tbody tr + tr { border-top: 1px solid var(--line); }
+    tbody tr + tr td, tbody tr + tr th { border-top: 0; }
+    th, td { padding: 4px 0; }
+    td::before { content: attr(data-label); display: block; font-family: var(--mono); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-text); }
+    tbody th { font-family: var(--serif); font-size: 1.15rem; padding-bottom: 8px; }
+  }
+
+  /* run it */
+  .code {
+    background: var(--code-bg); color: var(--code-ink); border-radius: var(--radius); padding: 0; overflow: hidden; box-shadow: var(--shadow);
+  }
+  .code-bar { display: flex; align-items: center; gap: 8px; padding: 12px 18px; border-bottom: 1px solid rgba(244, 239, 230, .12); font-family: var(--mono); font-size: .78rem; color: #CFC6B3; }
+  .code-bar i { width: 10px; height: 10px; border-radius: 50%; background: #5A574F; display: block; }
+  .code-bar i:first-child { background: var(--sunrise); }
+  .code-bar span { margin-left: 8px; }
+  .code pre { margin: 0; padding: 20px 22px; overflow-x: auto; font-size: .88rem; line-height: 1.75; tab-size: 2; }
+  .code .c { color: #A9B89A; }
+  .code .p { color: var(--sunrise); user-select: none; }
+  .reqs { margin-top: 22px; color: var(--muted-text); font-size: .95rem; max-width: 80ch; }
+  .reqs p:last-child { margin-bottom: 0; }
+
+  /* stats */
+  .stats-strip { background: var(--ink); color: var(--cream); border-top: 0; }
+  .stats-strip .eyebrow { color: #E9B37C; }
+  .stats-strip h2 { color: var(--cream); }
+  .stats-strip .lede { color: #D3CBB8; }
+  .stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; margin: 0; border: 1px solid rgba(244, 239, 230, .16); border-radius: var(--radius); overflow: hidden; }
+  .stat { padding: 24px 20px; border-left: 1px solid rgba(244, 239, 230, .16); min-width: 0; }
+  .stat:first-child { border-left: 0; }
+  .stat dd { margin: 0; font-family: var(--serif); font-size: clamp(2rem, 1.5rem + 1.5vw, 2.6rem); line-height: 1.1; color: var(--card); font-variant-numeric: tabular-nums; }
+  .stat dt { font-size: .88rem; color: #D3CBB8; margin-top: 8px; }
+  .stat:nth-child(2) dd, .stat:nth-child(3) dd { color: #E9B37C; }
+  .stats-note { margin-top: 18px; font-size: .9rem; color: #BDB4A0; }
+  @media (max-width: 980px) {
+    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .stat:nth-child(4) { border-left: 0; }
+    .stat:nth-child(n+4) { border-top: 1px solid rgba(244, 239, 230, .16); }
+  }
+  @media (max-width: 560px) {
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat { border-left: 1px solid rgba(244, 239, 230, .16); }
+    .stat:nth-child(odd) { border-left: 0; }
+    .stat:nth-child(n+3) { border-top: 1px solid rgba(244, 239, 230, .16); }
+  }
+  /* the number sits above its label; dt stays first in the markup */
+  .stat { display: flex; flex-direction: column-reverse; justify-content: flex-end; }
+
+  /* evidence */
+  figure { margin: 0; }
+  .evidence { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow); }
+  .evidence img { border-radius: 10px; border: 1px solid var(--line); width: 100%; }
+  .evidence figcaption { padding: 14px 6px 4px; color: var(--muted-text); font-size: .95rem; }
+
+  /* footer */
+  footer { border-top: 1px solid var(--line); padding: 40px 0 56px; color: var(--muted-text); font-size: .95rem; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 20px 32px; justify-content: space-between; align-items: center; }
+  footer .brand { font-size: 1.05rem; }
+  footer p { margin: 0; }
+  footer ul { display: flex; flex-wrap: wrap; gap: 18px; list-style: none; margin: 0; padding: 0; }
+
+  @media (max-width: 900px) {
+    .hero .wrap, .split, .player-card { grid-template-columns: 1fr; }
+    .hero .wrap { gap: 40px; }
+    .split { gap: 28px; }
+  }
+  @media (max-width: 560px) {
+    body { font-size: 16px; }
+    section { padding: 64px 0; }
+    .hero { padding: 48px 0 64px; }
+    .hero-logo { width: 72px; height: 72px; }
+    .btn { width: 100%; justify-content: center; }
+    .player-card, .programme { padding: 20px; }
+    #transcript { padding: 16px; font-size: .85rem; }
+    .code pre { padding: 16px; font-size: .8rem; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Sloth FM, back to top">
+      <img src="img/logo.svg" alt="" width="34" height="34">
+      <span>Sloth FM</span>
+    </a>
+    <nav aria-label="Main">
+      <ul>
+        <li class="hide-sm"><a href="#listen">Listen</a></li>
+        <li class="hide-sm"><a href="#how">How it works</a></li>
+        <li class="hide-sm"><a href="#run">Run it</a></li>
+        <li><a class="gh" href="https://github.com/vignesh2027/slothfm">GitHub</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="hero" id="top" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div>
+        <img class="hero-logo" src="img/logo.svg" alt="Sloth FM logo: a sloth wearing orange headphones" width="88" height="88">
+        <h1 id="hero-title">Sloth FM</h1>
+        <p class="tagline">Your GitHub inbox, read overnight by a sloth on your own laptop.</p>
+        <p class="lede">While you sleep, Gemma 3 works through your GitHub notifications one at a time, right on your machine. In the morning an open-weight voice reads you a short radio show and leaves a page of links. No API keys, no cloud, no cost.</p>
+        <div class="btns">
+          <a class="btn btn-primary" href="#listen">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4.5v11l9-5.5z" fill="currentColor"/></svg>
+            Listen to this morning's show
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/vignesh2027/slothfm">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+
+      <aside class="programme" aria-labelledby="prog-title">
+        <h2 id="prog-title">Tonight's programme <span class="onair">Local</span></h2>
+        <ol>
+          <li><span class="when">Evening</span><div><strong>Waits for the charger</strong><span class="d">Nothing happens on battery. Plug in and the night shift begins.</span></div></li>
+          <li><span class="when">Overnight</span><div><strong>One notification at a time</strong><span class="d">Code sorts the obvious, Gemma reads the rest, then a short rest.</span></div></li>
+          <li><span class="when">Dawn</span><div><strong>The show is written</strong><span class="d">Code counts, Gemma writes the sentences, Kokoro records it.</span></div></li>
+          <li><span class="when">Breakfast</span><div><strong>Press play</strong><span class="d">About a minute and a half, plus a page with every link.</span></div></li>
+        </ol>
+      </aside>
+    </div>
+  </section>
+
+  <section id="listen" aria-labelledby="listen-title">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">On air</p>
+        <h2 id="listen-title">Listen to this morning's show</h2>
+        <p class="lede">A real episode, made from my own notifications on my own laptop. The voice is Kokoro, an open-weight model, running locally.</p>
+      </div>
+      <div class="player-card">
+        <div class="meta">
+          <div class="dial" aria-hidden="true">
+            <i style="height:40%"></i><i style="height:70%"></i><i style="height:55%"></i><i style="height:90%"></i><i style="height:60%"></i><i style="height:35%"></i><i style="height:75%"></i><i style="height:50%"></i><i style="height:85%"></i><i style="height:45%"></i><i style="height:65%"></i><i style="height:30%"></i>
+          </div>
+          <h3>Sloth FM, morning edition</h3>
+          <p>What needs you today, what is yours this week, the good news, and how much noise was cleared away. Private repositories and security advisories are left off the air.</p>
+          <audio controls preload="none" src="sample/sloth-fm.mp3">
+            Your browser does not play audio here. <a href="sample/sloth-fm.mp3">Download the show</a> instead.
+          </audio>
+        </div>
+        <div>
+          <p class="transcript-label" id="transcript-label">Transcript</p>
+          <pre id="transcript" tabindex="0" aria-labelledby="transcript-label">Good morning. This is Sloth FM. While you slept, I read 76 GitHub notifications, slowly, on your own laptop, so you would not have to.
+5 things need you today.
+First: You need to address the bug report regarding instrumentation spans leaking in the opentelemetry-go-compile-instrumentation repo.
+Next: You need to address a bug in the opentelemetry-go-compile-instrumentation repo regarding span leaks.
+Then: In opentelemetry-go-compile-instrumentation, you need to review and respond to this naming request.
+Also: You need to address the review request on the opentelemetry-go-compile-instrumentation repo.
+And: You need to review the draft issue for the opentelemetry-go-compile-instrumentation repo, you&#x27;ve been asked for feedback.
+13 more are yours this week, but nobody is blocked on them. They are on your morning page.
+Some good news: 9 things went well.
+In opentelemetry-operator, your pull request was merged.
+In opentelemetry-go-compile-instrumentation, your pull request was merged.
+The other 49 were noise: 28 CI runs that need nothing from you, 16 threads you were only following, 5 releases from repositories you watch. You can ignore them.
+The most productive moment is often the one where you simply rest.
+That is all. Go back to sleep for five more minutes. You have earned it.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">How it works</p>
+        <h2 id="how-title">Code does the sure things. Gemma does the thinking.</h2>
+        <p class="lede">The model only sees what a person would have to think about, and it never writes a number. A Temporal workflow holds the whole night together, so nothing is lost if the laptop sleeps.</p>
+      </div>
+
+      <div class="temporal" role="group" aria-label="Everything below runs inside one Temporal workflow">
+        <span class="temporal-tag">Temporal workflow: NightShift</span>
+        <ol class="flow">
+          <li>
+            <h3>gh notifications</h3>
+            <p>Your recent GitHub notifications, fetched with the GitHub CLI you already use.</p>
+            <span class="who data">input</span>
+          </li>
+          <li>
+            <h3>SQLite journal</h3>
+            <p>Every thread is written down first, so the night always knows where it got to.</p>
+            <span class="who data">on disk</span>
+          </li>
+          <li>
+            <h3>Code decides the obvious</h3>
+            <p>Passed CI, releases you only watch, merged PRs, older runs on the same branch, PRs waiting on maintainers.</p>
+            <span class="who code">code</span>
+          </li>
+          <li>
+            <h3>Gemma 3 judges the rest</h3>
+            <p>Needs you today, yours this week, good news, or noise. A reason and one spoken sentence each.</p>
+            <span class="who model">local model</span>
+          </li>
+          <li>
+            <h3>Code writes the numbers</h3>
+            <p>Every count in the show comes from the journal, so nothing is ever made up.</p>
+            <span class="who code">code</span>
+          </li>
+          <li>
+            <h3>Kokoro reads the show</h3>
+            <p>A short radio show and a morning page with a link for everything.</p>
+            <span class="who model">local voice</span>
+          </li>
+        </ol>
+        <ul class="temporal-notes">
+          <li>One activity per notification, with retries</li>
+          <li>A durable timer that waits for the charger</li>
+          <li>A <code>wake</code> signal to start anyway</li>
+          <li>A <code>progress</code> query to check in</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="slow" aria-labelledby="slow-title">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Slow on purpose</p>
+        <h2 id="slow-title">It takes its time, so you don't have to.</h2>
+        <p class="lede">There is no rush overnight. Sloth FM is built to be gentle on your laptop and impossible to knock off course.</p>
+      </div>
+      <div class="cards">
+        <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0zM12 18v4"/></svg></div>
+          <h3>Waits for the charger</h3>
+          <p>On battery it sets a durable timer and checks again every fifteen minutes. Plug in and it starts. Send <code>wake</code> if you want it to go now.</p>
+        </article>
+        <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></div>
+          <h3>Rests between notifications</h3>
+          <p>A short pause after each one keeps the fans quiet and the laptop cool while you sleep.</p>
+        </article>
+        <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></div>
+          <h3>Resumes after a crash</h3>
+          <p>Close the lid or kill the process. Temporal remembers, and the night carries on from the next notification.</p>
+        </article>
+        <article class="card">
+          <div class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></div>
+          <h3>Decided by code first</h3>
+          <p>Plain rules settle the sure things before the model is asked. Gemma only spends time where a person would have to think.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="private" aria-labelledby="private-title">
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">Private by default</p>
+        <h2 id="private-title">Nothing leaves your laptop.</h2>
+        <p class="lede" style="margin-top:14px">Your notifications are read by a model on your own machine and spoken by a voice on your own machine. There is no account to make and nothing to pay for.</p>
+        <ul class="never" aria-label="What Sloth FM never needs">
+          <li><s>API keys</s></li>
+          <li><s>Cloud models</s></li>
+          <li><s>Telemetry</s></li>
+          <li><s>Monthly bill</s></li>
+        </ul>
+      </div>
+      <ul class="checks">
+        <li><strong>Security advisories stay off the air</strong><span>The show says one is waiting for you, and keeps the details to itself.</span></li>
+        <li><strong>Private repositories are never read aloud</strong><span>They appear on your own morning page, and are redacted when you build it with <code>--public</code>.</span></li>
+        <li><strong>Only GitHub is contacted</strong><span>Through the <code>gh</code> CLI you already signed in to. Gemma, Kokoro and Temporal all run locally.</span></li>
+        <li><strong>One optional action</strong><span>Add <code>--tidy</code> and it marks the noise as read on GitHub. That is all it ever does on your behalf.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="models" aria-labelledby="models-title">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Open models</p>
+        <h2 id="models-title">Open weights, open licences.</h2>
+        <p class="lede">Every part you need is free to download and runs on an ordinary laptop.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th scope="col">Part</th><th scope="col">Model</th><th scope="col">Licence</th><th scope="col">Runs</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Judgement</th>
+              <td data-label="Model">Gemma 3 4B<small><code>gemma3:4b</code></small></td>
+              <td data-label="Licence">Gemma Terms of Use</td>
+              <td data-label="Runs">Locally, through Ollama</td>
+            </tr>
+            <tr>
+              <th scope="row">Voice</th>
+              <td data-label="Model">Kokoro 82M<small><code>bm_george</code></small></td>
+              <td data-label="Licence">Apache-2.0</td>
+              <td data-label="Runs">Locally, through kokoro-onnx</td>
+            </tr>
+            <tr>
+              <th scope="row">Durability</th>
+              <td data-label="Model">Temporal</td>
+              <td data-label="Licence">MIT</td>
+              <td data-label="Runs">Locally, <code>temporal server start-dev</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="run" aria-labelledby="run-title">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Run it</p>
+        <h2 id="run-title">Set it up once, then go to bed.</h2>
+      </div>
+      <div class="code">
+        <div class="code-bar" aria-hidden="true"><i></i><i></i><i></i><span>terminal</span></div>
+<pre><code><span class="p">$ </span>python3 -m venv .venv &amp;&amp; .venv/bin/pip install -r requirements.txt
+<span class="p">$ </span>ollama pull gemma3:4b
+<span class="p">$ </span>scripts/sloth.sh            <span class="c"># starts Ollama and Temporal if needed, then waits for the charger</span>
+<span class="p">$ </span>scripts/sloth.sh --now      <span class="c"># or start right away</span>
+<span class="p">$ </span>.venv/bin/python -m slothfm progress   <span class="c"># how far did it get?</span>
+<span class="p">$ </span>.venv/bin/python -m slothfm wake       <span class="c"># on battery, but start anyway</span>
+<span class="p">$ </span>.venv/bin/python -m slothfm morning    <span class="c"># rebuild this morning's page and show</span>
+<span class="p">$ </span>open ~/.slothfm/mornings/$(date +%F)/index.html</code></pre>
+      </div>
+      <div class="reqs">
+        <p><strong>You will need</strong> macOS or Linux, Python 3.12 or newer, <a href="https://ollama.com">Ollama</a>, the <a href="https://temporal.io">Temporal CLI</a>, the GitHub CLI signed in with <code>gh auth login</code>, ffmpeg, and the Kokoro model files (<code>kokoro-v1.0.onnx</code> and <code>voices-v1.0.bin</code>) in <code>~/.slothfm/kokoro</code>.</p>
+        <p>Add <code>--tidy</code> to mark the noise as read on GitHub.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="stats-strip" id="numbers" aria-labelledby="numbers-title">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Numbers from my own inbox</p>
+        <h2 id="numbers-title">One real night.</h2>
+        <p class="lede">Counted by code from the journal, not by the model.</p>
+      </div>
+      <dl class="stats">
+        <div class="stat"><dt>notifications read</dt><dd><span id="st-notifications">76</span></dd></div>
+        <div class="stat"><dt>decided by code</dt><dd><span id="st-code">57</span></dd></div>
+        <div class="stat"><dt>judged by Gemma</dt><dd><span id="st-gemma">19</span></dd></div>
+        <div class="stat"><dt>minutes of night shift</dt><dd><span id="st-minutes">2.3</span></dd></div>
+        <div class="stat"><dt>length of the show</dt><dd><span id="st-show">99 s</span></dd></div>
+        <div class="stat"><dt>words in the show</dt><dd><span id="st-words">1,255</span></dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="evidence" aria-labelledby="evidence-title">
+    <div class="wrap">
+      <div class="head">
+        <p class="eyebrow">Seen in Temporal</p>
+        <h2 id="evidence-title">A night that knows how to wait.</h2>
+      </div>
+      <figure class="evidence">
+        <img src="img/temporal-waiting.png" width="3200" height="2000" loading="lazy" decoding="async"
+             alt="The Temporal web UI showing the NightShift workflow night-2026-10-25 as running. Its timeline shows the collect and plugged_in activities, followed by a 15 minute timer waiting for the laptop to be plugged in">
+        <figcaption>The night shift waiting for the charger, in the Temporal UI</figcaption>
+      </figure>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Sloth FM, back to top">
+      <img src="img/logo.svg" alt="" width="28" height="28">
+      <span>Sloth FM</span>
+    </a>
+    <p>Open source under the <a href="https://github.com/vignesh2027/slothfm/blob/main/LICENSE">MIT licence</a>. Built for the DEV Hacktoberfest Open-Source AI Challenge, Week 3: Slow and Steady.</p>
+    <ul>
+      <li><a href="https://github.com/vignesh2027/slothfm">GitHub</a></li>
+      <li><a href="#listen">Listen</a></li>
+      <li><a href="#run">Run it</a></li>
+    </ul>
+  </div>
+</footer>
+</body>
+</html>
