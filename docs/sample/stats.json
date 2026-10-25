@@ -8,7 +8,7 @@
     "noise": 49
   },
   "gemma_minutes": 2.3,
-  "show_seconds": 98.7,
+  "show_seconds": 99.7,
   "words_you_did_not_read": 1255,
   "tidied": 0,
   "model": "gemma3:4b",

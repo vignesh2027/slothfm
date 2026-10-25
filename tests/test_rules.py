@@ -51,3 +51,11 @@ def test_whose_move_is_decided_by_facts():
     assert whose_move({"you_opened_it": True, "last_comment_by": "maintainer"}) == "yours"
     pr = item()
     assert rules.decide(pr, {"state": "open", "whose_move": "the maintainers'"}, "me")[0] == "noise"
+
+
+def test_public_page_hides_private_repositories():
+    from slothfm import brief
+    it = {"bucket": "noise", "urgency": None, "title": "secret-thing", "repo": "me/private-repo", "why": "x",
+          "decided_by": "rule", "sensitive": 0, "private": 1, "type": "CheckSuite", "api_url": None}
+    page = brief.page([it], "a.mp3", 1.0, public=True)
+    assert "private-repo" not in page and "secret-thing" not in page

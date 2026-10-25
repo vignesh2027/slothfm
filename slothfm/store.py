@@ -75,14 +75,15 @@ def supersede_ci():
     """Only the newest failing run on a branch matters; older runs and sibling workflows are noise, decided by code."""
     from .rules import ci_parts
     con, seen, n = db(), set(), 0
-    rows = con.execute("SELECT thread, repo, title FROM items WHERE type='CheckSuite' AND bucket IS NULL ORDER BY updated DESC")
+    rows = con.execute("SELECT thread, repo, title, private FROM items WHERE type='CheckSuite' AND bucket IS NULL "
+                       "ORDER BY updated DESC")
     for r in rows.fetchall():
         parts = ci_parts(r["title"])
         key = (r["repo"], parts.get("branch"))
         if None in key:
             continue
         if key in seen:
-            decide(r["thread"], "noise", "another CI run on the same branch", None, "rule")
+            decide(r["thread"], "noise", "another CI run on the same branch", None, "rule", sensitive=bool(r["private"]))
             n += 1
         seen.add(key)
     return n

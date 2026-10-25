@@ -23,7 +23,7 @@ def two_lines(items):
 
 def page(items, audio_name, seconds, public=False, night=None):
     def row(it):
-        hidden = public and it["sensitive"]
+        hidden = public and (it["sensitive"] or it["private"])
         title = "Private item, kept on the laptop" if hidden else html.escape(it["title"])
         repo = "" if hidden else html.escape(it["repo"])
         link = "" if hidden else f'<a href="{html.escape(html_url(it))}">open</a>'
