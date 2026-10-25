@@ -1,0 +1,4 @@
+kokoro-onnx
+soundfile
+numpy
+temporalio
