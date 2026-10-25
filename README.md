@@ -2,6 +2,8 @@
 
 **Your GitHub inbox, read overnight by a sloth on your own laptop, and read back to you at breakfast.**
 
+[Project page and this morning's real show](https://vignesh2027.github.io/slothfm/) · [2-minute demo video](https://youtu.be/AAT4jtSzfxg)
+
 Sloth FM is a slow, private, open-weight night shift for developers. While you sleep, it works through your GitHub
 notifications one at a time with **Gemma 3 running locally**, decides what needs you, what went well and what is
 noise, and in the morning **Kokoro (an open-weight voice) reads you a short radio show** with a page of links.
@@ -13,7 +15,7 @@ durability comes from a **Temporal** workflow.
 
 ## Why
 
-A month of my own GitHub notifications: 184 threads, most of them CI runs and bots. The few that mattered (a CLA to
+Three months of my own GitHub notifications: 184 threads, 98 of them CI runs. The few that mattered (a CLA to
 sign, a reviewer waiting on me, a security advisory) were buried in the rest. Reading all of it is a chore; ignoring
 all of it is how things get missed. Sloth FM does the reading so I do not have to.
 
